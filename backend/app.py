@@ -139,6 +139,11 @@ def start():
     if not question_bank:
         print(f"Error: No question bank found for {company}")
         return jsonify({"error": f"No question bank available for {company}."}), 400
+    print(question_bank.keys())
+    question_bank = question_bank.get(interview_type.lower(), [])
+    if not question_bank:
+        print(f"Error: No question bank found for {company} ({interview_type} interview)")
+        return jsonify({"error": f"No question bank available for {company} ({interview_type} interview)."}), 400
     
     # Initialize session data
     sessions[session_id] = {

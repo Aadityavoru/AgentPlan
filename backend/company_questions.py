@@ -44,7 +44,7 @@ question_banks = {
                 "evaluation_prompt": "Evaluate for awareness of data protection, ethical considerations, and regulatory compliance."
             }
         ],
-        "behavioural": [
+        "behavioral": [
             {
                 "question": "Describe a time when you faced a technical challenge and how you overcame it.",
                 "evaluation_prompt": "Evaluate using the STAR method, focusing on problem-solving, resilience, and clear communication."
@@ -134,7 +134,7 @@ question_banks = {
                 "evaluation_prompt": "Evaluate for strategic thinking, technical insight, and a focus on end-user satisfaction."
             }
         ],
-        "behavioural": [
+        "behavioral": [
             {
                 "question": "Explain a project where you had to make difficult technical trade-offs.",
                 "evaluation_prompt": "Evaluate for pragmatic decision-making, prioritization, and clear communication of trade-offs."
@@ -224,7 +224,7 @@ question_banks = {
                 "evaluation_prompt": "Evaluate for understanding of AI applications, business impact, and technical challenges."
             }
         ],
-        "behavioural": [
+        "behavioral": [
             {
                 "question": "Tell me about a time when you had to make a decision with incomplete information.",
                 "evaluation_prompt": "Evaluate for decisiveness, risk-taking, and alignment with leadership principles."
@@ -314,7 +314,7 @@ question_banks = {
                 "evaluation_prompt": "Evaluate for strategic decision-making, technical insight, and adaptability to change."
             }
         ],
-        "behavioural": [
+        "behavioral": [
             {
                 "question": "Describe a time when you had to work across teams to deliver a project.",
                 "evaluation_prompt": "Assess for collaboration, effective communication, and managing cross-functional projects."
