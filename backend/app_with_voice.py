@@ -18,6 +18,16 @@ from pydantic import BaseModel, Field
 
 from agents import Agent, Runner, trace, gen_trace_id
 
+# Initialize AgentOps with error handling
+try:
+    import agentops
+    agentops.init()
+    AGENTOPS_ENABLED = True
+    print("AgentOps initialized successfully")
+except Exception as e:
+    AGENTOPS_ENABLED = False
+    print(f"AgentOps initialization failed: {e}")
+
 # Import our company-specific question banks and evaluation configurations
 from company_questions import question_banks
 from evaluation_configs import build_evaluation_prompt, get_evaluation_config
@@ -107,6 +117,28 @@ feedback_agent = Agent(
     output_type=FinalFeedbackOutput
 )
 
+# Define a context manager for AgentOps that falls back gracefully
+class AgentOpsSpan:
+    def __init__(self, name):
+        self.name = name
+        self.span = None
+    
+    def __enter__(self):
+        if AGENTOPS_ENABLED:
+            try:
+                self.span = agentops.start_span(self.name)
+                return self.span
+            except Exception as e:
+                print(f"AgentOps span creation failed: {e}")
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.span and AGENTOPS_ENABLED:
+            try:
+                self.span.__exit__(exc_type, exc_val, exc_tb)
+            except Exception as e:
+                print(f"AgentOps span closure failed: {e}")
+
 async def evaluate_answer(input_data: EvaluationInput) -> EvaluationOutput:
     """
     Evaluates the candidate's answer using the OpenAI Agents SDK.
@@ -118,40 +150,41 @@ async def evaluate_answer(input_data: EvaluationInput) -> EvaluationOutput:
         EvaluationOutput: Evaluation feedback and optional follow-up questions
     """
     # Generate a trace ID for debugging
-    trace_id = gen_trace_id()
-    
-    # Enhance the evaluation prompt with company-specific configuration
-    enhanced_prompt = build_evaluation_prompt(
-        input_data.company, 
-        input_data.interview_type,
-        input_data.evaluation_prompt
-    )
-    
-    # Construct prompt for the evaluator agent
-    prompt = f"""
-    Company: {input_data.company}
-    Interview Type: {input_data.interview_type}
-    
-    Conversation History:
-    {format_conversation_history(input_data.conversation_history)}
-    
-    Candidate's Answer: 
-    "{input_data.candidate_answer}"
-    
-    Evaluation Criteria:
-    {enhanced_prompt}
-    
-    Please evaluate the candidate's answer based on the provided criteria.
-    If appropriate, include 1-3 follow-up questions that could be asked to explore areas that need more depth or clarification.
-    """
-    
-    # Use tracing to help with debugging
-    with trace("Evaluate candidate answer", trace_id=trace_id):
-        # Run the evaluator agent
-        result = await Runner.run(evaluator_agent, input=prompt)
-        evaluation = result.final_output_as(EvaluationOutput)
+    with AgentOpsSpan("evaluate_answer"):
+        trace_id = gen_trace_id()
         
-        return evaluation
+        # Enhance the evaluation prompt with company-specific configuration
+        enhanced_prompt = build_evaluation_prompt(
+            input_data.company, 
+            input_data.interview_type,
+            input_data.evaluation_prompt
+        )
+        
+        # Construct prompt for the evaluator agent
+        prompt = f"""
+        Company: {input_data.company}
+        Interview Type: {input_data.interview_type}
+        
+        Conversation History:
+        {format_conversation_history(input_data.conversation_history)}
+        
+        Candidate's Answer: 
+        "{input_data.candidate_answer}"
+        
+        Evaluation Criteria:
+        {enhanced_prompt}
+        
+        Please evaluate the candidate's answer based on the provided criteria.
+        If appropriate, include 1-3 follow-up questions that could be asked to explore areas that need more depth or clarification.
+        """
+        
+        # Use tracing to help with debugging
+        with trace("Evaluate candidate answer", trace_id=trace_id):
+            # Run the evaluator agent
+            result = await Runner.run(evaluator_agent, input=prompt)
+            evaluation = result.final_output_as(EvaluationOutput)
+            
+            return evaluation
 
 async def generate_final_feedback(input_data: FinalFeedbackInput) -> FinalFeedbackOutput:
     """
@@ -164,42 +197,43 @@ async def generate_final_feedback(input_data: FinalFeedbackInput) -> FinalFeedba
         FinalFeedbackOutput: Final feedback with strengths and areas for improvement
     """
     # Generate a trace ID for debugging
-    trace_id = gen_trace_id()
-    
-    # Get evaluation configuration
-    eval_config = get_evaluation_config(input_data.company, input_data.interview_type)
-    
-    # Construct prompt for the feedback agent
-    prompt = f"""
-    Company: {input_data.company}
-    Interview Type: {input_data.interview_type}
-    
-    Complete Interview Conversation:
-    {format_conversation_history(input_data.conversation_history)}
-    
-    Based on the above conversation, provide a comprehensive performance summary and
-    suggest improvements tailored to the interview standards of {input_data.company}.
-    
-    Evaluation Structure:
-    {json.dumps(eval_config.get('structure', {}), indent=2)}
-    
-    Evaluation Criteria:
-    {json.dumps(eval_config.get('criteria', []), indent=2)}
-    
-    Please include:
-    1. A comprehensive written assessment
-    2. A bullet-point list of key strengths (at least 3)
-    3. A bullet-point list of specific areas for improvement (at least 3)
-    4. An overall rating (if requested in the evaluation structure)
-    """
-    
-    # Use tracing to help with debugging
-    with trace("Generate final feedback", trace_id=trace_id):
-        # Run the feedback agent
-        result = await Runner.run(feedback_agent, input=prompt)
-        feedback = result.final_output_as(FinalFeedbackOutput)
+    with AgentOpsSpan("generate_final_feedback"):
+        trace_id = gen_trace_id()
         
-        return feedback
+        # Get evaluation configuration
+        eval_config = get_evaluation_config(input_data.company, input_data.interview_type)
+        
+        # Construct prompt for the feedback agent
+        prompt = f"""
+        Company: {input_data.company}
+        Interview Type: {input_data.interview_type}
+        
+        Complete Interview Conversation:
+        {format_conversation_history(input_data.conversation_history)}
+        
+        Based on the above conversation, provide a comprehensive performance summary and
+        suggest improvements tailored to the interview standards of {input_data.company}.
+        
+        Evaluation Structure:
+        {json.dumps(eval_config.get('structure', {}), indent=2)}
+        
+        Evaluation Criteria:
+        {json.dumps(eval_config.get('criteria', []), indent=2)}
+        
+        Please include:
+        1. A comprehensive written assessment
+        2. A bullet-point list of key strengths (at least 3)
+        3. A bullet-point list of specific areas for improvement (at least 3)
+        4. An overall rating (if requested in the evaluation structure)
+        """
+        
+        # Use tracing to help with debugging
+        with trace("Generate final feedback", trace_id=trace_id):
+            # Run the feedback agent
+            result = await Runner.run(feedback_agent, input=prompt)
+            feedback = result.final_output_as(FinalFeedbackOutput)
+            
+            return feedback
 
 def format_conversation_history(history: List[Dict[str, str]]) -> str:
     """Format conversation history into a readable text format"""
@@ -297,57 +331,64 @@ def answer():
     # Get evaluation prompt for current question
     eval_prompt = question_bank[current_index]["evaluation_prompt"]
     
-    # Create evaluation input
-    eval_input = EvaluationInput(
-        candidate_answer=candidate_answer,
-        evaluation_prompt=eval_prompt,
-        conversation_history=history,
-        company=company,
-        interview_type=interview_type
-    )
-    
-    # Evaluate candidate's answer using the evaluator agent
-    # Note: We need to run the async function in a synchronous context
-    evaluation_output = asyncio.run(evaluate_answer(eval_input))
-    evaluation = evaluation_output.evaluation
-    follow_up_questions = evaluation_output.follow_up_questions or []
-    
-    # Add evaluation to history
-    history.append({"role": "agent", "text": evaluation})
-    
-    # Move to next question
-    session_data["current_index"] += 1
-    current_index = session_data["current_index"]
-    
-    # Check if there are more questions
-    if current_index < len(question_bank):
-        next_question = question_bank[current_index]["question"]
-        # Add next question to history
-        history.append({"role": "agent", "text": next_question})
+    try:
+        # Create evaluation input
+        eval_input = EvaluationInput(
+            candidate_answer=candidate_answer,
+            evaluation_prompt=eval_prompt,
+            conversation_history=history,
+            company=company,
+            interview_type=interview_type
+        )
         
-        response = {
-            "evaluation": evaluation, 
-            "follow_up_questions": follow_up_questions,
-            "question": next_question,
-            "question_number": current_index + 1,
-            "total_questions": len(question_bank),
-            "is_last": current_index == len(question_bank) - 1,
-            "is_voice_mode": is_voice_mode
-        }
-    else:
-        # No more questions
-        response = {
-            "evaluation": evaluation,
-            "follow_up_questions": follow_up_questions,
-            "question": "That concludes our interview questions. Would you like to end the interview and receive your final feedback?",
-            "question_number": current_index,
-            "total_questions": len(question_bank),
-            "is_last": True,
-            "is_voice_mode": is_voice_mode
-        }
+        # Evaluate candidate's answer using the evaluator agent
+        # Note: We need to run the async function in a synchronous context
+        evaluation_output = asyncio.run(evaluate_answer(eval_input))
+        evaluation = evaluation_output.evaluation
+        follow_up_questions = evaluation_output.follow_up_questions or []
+        
+        # Add evaluation to history
+        history.append({"role": "agent", "text": evaluation})
+        
+        # Move to next question
+        session_data["current_index"] += 1
+        current_index = session_data["current_index"]
+        
+        # Check if there are more questions
+        if current_index < len(question_bank):
+            next_question = question_bank[current_index]["question"]
+            # Add next question to history
+            history.append({"role": "agent", "text": next_question})
+            
+            response = {
+                "evaluation": evaluation, 
+                "follow_up_questions": follow_up_questions,
+                "question": next_question,
+                "question_number": current_index + 1,
+                "total_questions": len(question_bank),
+                "is_last": current_index == len(question_bank) - 1,
+                "is_voice_mode": is_voice_mode
+            }
+        else:
+            # No more questions
+            response = {
+                "evaluation": evaluation,
+                "follow_up_questions": follow_up_questions,
+                "question": "That concludes our interview questions. Would you like to end the interview and receive your final feedback?",
+                "question_number": current_index,
+                "total_questions": len(question_bank),
+                "is_last": True,
+                "is_voice_mode": is_voice_mode
+            }
+        
+        print("Sending answer response:", response)
+        return jsonify(response)
     
-    print("Sending answer response:", response)
-    return jsonify(response)
+    except Exception as e:
+        print(f"Error processing answer: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "There was an error processing your answer. Please try again."}), 500
 
 @app.route('/api/end', methods=['POST'])
 def end():
@@ -367,30 +408,37 @@ def end():
     history = session_data["history"]
     is_voice_mode = session_data["is_voice_mode"]
     
-    # Create feedback input
-    feedback_input = FinalFeedbackInput(
-        conversation_history=history,
-        company=company,
-        interview_type=interview_type
-    )
+    try:
+        # Create feedback input
+        feedback_input = FinalFeedbackInput(
+            conversation_history=history,
+            company=company,
+            interview_type=interview_type
+        )
+        
+        # Generate final feedback using the feedback agent
+        # Note: We need to run the async function in a synchronous context
+        feedback_output = asyncio.run(generate_final_feedback(feedback_input))
+        
+        # Add final feedback to history
+        history.append({"role": "agent", "text": feedback_output.feedback})
+        
+        response = {
+            "feedback": feedback_output.feedback,
+            "strengths": feedback_output.strengths,
+            "areas_for_improvement": feedback_output.areas_for_improvement,
+            "overall_rating": feedback_output.overall_rating,
+            "company": company,
+            "is_voice_mode": is_voice_mode
+        }
+        print("Sending end response:", response)
+        return jsonify(response)
     
-    # Generate final feedback using the feedback agent
-    # Note: We need to run the async function in a synchronous context
-    feedback_output = asyncio.run(generate_final_feedback(feedback_input))
-    
-    # Add final feedback to history
-    history.append({"role": "agent", "text": feedback_output.feedback})
-    
-    response = {
-        "feedback": feedback_output.feedback,
-        "strengths": feedback_output.strengths,
-        "areas_for_improvement": feedback_output.areas_for_improvement,
-        "overall_rating": feedback_output.overall_rating,
-        "company": company,
-        "is_voice_mode": is_voice_mode
-    }
-    print("Sending end response:", response)
-    return jsonify(response)
+    except Exception as e:
+        print(f"Error generating final feedback: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "There was an error generating the final feedback. Please try again."}), 500
 
 # New endpoint for voice-specific operations
 @app.route('/api/voice/convert', methods=['POST'])
