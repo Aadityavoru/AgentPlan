@@ -16,6 +16,12 @@ from flask_cors import CORS
 # Import our company-specific question banks
 from company_questions import question_banks
 
+# Import AgentOps for enhanced monitoring and observability
+import agentops
+
+# Initialize AgentOps (assuming a basic initialization call)
+agentops.init()
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'mock_interview_secret_key')
 
@@ -41,36 +47,37 @@ def evaluate_answer(client, candidate_answer, evaluation_prompt, conversation_hi
     Returns:
         str: Evaluation feedback
     """
-    # Build messages for API call
-    messages = []
+    with agentops.start_span("evaluate_answer"):
+        # Build messages for API call
+        messages = []
     
-    # Add system message with evaluation context
-    messages.append({
-        "role": "system", 
-        "content": "You are an expert interviewer evaluating a candidate's response. " +
-                   "Provide constructive feedback based on the company's criteria."
-    })
+        # Add system message with evaluation context
+        messages.append({
+            "role": "system", 
+            "content": "You are an expert interviewer evaluating a candidate's response. " +
+                       "Provide constructive feedback based on the company's criteria."
+        })
     
-    # Add conversation history
-    for item in conversation_history:
-        role = "assistant" if item["role"] == "agent" else "user"
-        messages.append({"role": role, "content": item["text"]})
+        # Add conversation history
+        for item in conversation_history:
+            role = "assistant" if item["role"] == "agent" else "user"
+            messages.append({"role": role, "content": item["text"]})
     
-    # Add the evaluation request
-    messages.append({
-        "role": "user", 
-        "content": f"The candidate's answer is: \"{candidate_answer}\"\n\n{evaluation_prompt}"
-    })
+        # Add the evaluation request
+        messages.append({
+            "role": "user", 
+            "content": f"The candidate's answer is: \"{candidate_answer}\"\n\n{evaluation_prompt}"
+        })
     
-    # Call OpenAI API
-    response = client.chat.completions.create(
-        model="gpt-4",  # You can adjust the model as needed
-        messages=messages,
-        temperature=0.7,
-    )
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-4",  # You can adjust the model as needed
+            messages=messages,
+            temperature=0.7,
+        )
     
-    # Return the evaluation
-    return response.choices[0].message.content
+        # Return the evaluation
+        return response.choices[0].message.content
 
 def generate_final_feedback(client, conversation_history, company):
     """
@@ -84,38 +91,39 @@ def generate_final_feedback(client, conversation_history, company):
     Returns:
         str: Final feedback summary
     """
-    # Build messages for API call
-    messages = []
+    with agentops.start_span("generate_final_feedback"):
+        # Build messages for API call
+        messages = []
     
-    # Add system message with final evaluation context
-    messages.append({
-        "role": "system", 
-        "content": f"You are an expert interviewer providing a final evaluation for a {company} interview. " +
-                   f"Summarize the candidate's performance based on {company}'s evaluation criteria, " +
-                   "highlighting strengths and areas for improvement."
-    })
+        # Add system message with final evaluation context
+        messages.append({
+            "role": "system", 
+            "content": f"You are an expert interviewer providing a final evaluation for a {company} interview. " +
+                       f"Summarize the candidate's performance based on {company}'s evaluation criteria, " +
+                       "highlighting strengths and areas for improvement."
+        })
     
-    # Add conversation history
-    for item in conversation_history:
-        role = "assistant" if item["role"] == "agent" else "user"
-        messages.append({"role": role, "content": item["text"]})
+        # Add conversation history
+        for item in conversation_history:
+            role = "assistant" if item["role"] == "agent" else "user"
+            messages.append({"role": role, "content": item["text"]})
     
-    # Add the final evaluation request
-    messages.append({
-        "role": "user", 
-        "content": f"Based on the above conversation, provide a comprehensive performance summary and " +
-                   f"suggest improvements tailored to the interview standards of {company}."
-    })
+        # Add the final evaluation request
+        messages.append({
+            "role": "user", 
+            "content": f"Based on the above conversation, provide a comprehensive performance summary and " +
+                       f"suggest improvements tailored to the interview standards of {company}."
+        })
     
-    # Call OpenAI API
-    response = client.chat.completions.create(
-        model="gpt-4",  # You can adjust the model as needed
-        messages=messages,
-        temperature=0.7,
-    )
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-4",  # You can adjust the model as needed
+            messages=messages,
+            temperature=0.7,
+        )
     
-    # Return the final feedback
-    return response.choices[0].message.content
+        # Return the final feedback
+        return response.choices[0].message.content
 
 @app.route('/api/companies')
 def get_companies():
