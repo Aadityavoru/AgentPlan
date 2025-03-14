@@ -3,7 +3,8 @@ import {
   StartInterviewResponse, 
   AnswerResponse, 
   EndInterviewResponse,
-  InterviewSetup
+  InterviewSetup,
+  InterviewSession
 } from '../types';
 
 // Create axios instance with the correct base URL
@@ -38,9 +39,23 @@ export const ApiService = {
     try {
       const response = await api.post('/api/start', {
         company: setup.company,
-        interview_type: setup.interviewType
+        interview_type: setup.interviewType,
+        is_voice_mode: setup.isVoiceMode
       });
-      return response.data;
+      
+      // Create the response with frontend naming convention
+      const data = response.data;
+      
+      // Convert session from API for frontend use
+      const finalResponse: StartInterviewResponse = {
+        ...data,
+        // Ensure property naming is consistent
+        session_id: data.session_id,
+        total_questions: data.total_questions,
+        is_voice_mode: data.is_voice_mode
+      };
+      
+      return finalResponse;
     } catch (error) {
       console.error('Start interview error:', error);
       throw error;
@@ -54,6 +69,7 @@ export const ApiService = {
         session_id: sessionId,
         answer: answer
       });
+      
       return response.data;
     } catch (error) {
       console.error('Submit answer error:', error);
@@ -67,9 +83,31 @@ export const ApiService = {
       const response = await api.post('/api/end', {
         session_id: sessionId
       });
+      
       return response.data;
     } catch (error) {
       console.error('End interview error:', error);
+      throw error;
+    }
+  },
+  
+  // Convert voice to text (for potential server-side processing)
+  convertVoice: async (audioData: Blob): Promise<{ text: string }> => {
+    try {
+      // Create form data
+      const formData = new FormData();
+      formData.append('audio', audioData);
+      
+      // Make API call
+      const response = await api.post('/api/voice/convert', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Voice conversion error:', error);
       throw error;
     }
   }

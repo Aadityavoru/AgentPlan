@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InterviewSession, Message } from './types';
 import InterviewSetupForm from './components/InterviewSetupForm';
 import InterviewChat from './components/InterviewChat';
+import VoiceInterviewChat from './components/VoiceInterviewChat';
 import FinalFeedback from './components/FinalFeedback';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import './App.css';
 
 const App: React.FC = () => {
@@ -12,6 +14,14 @@ const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isInterviewActive, setIsInterviewActive] = useState<boolean>(false);
   const [finalFeedback, setFinalFeedback] = useState<string>('');
+  const [feedbackDetails, setFeedbackDetails] = useState<{
+    strengths: string[];
+    areasForImprovement: string[];
+    overallRating?: string;
+  }>({
+    strengths: [],
+    areasForImprovement: []
+  });
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Handler for when interview is started
@@ -30,8 +40,18 @@ const App: React.FC = () => {
   };
 
   // Handler for when interview is ended
-  const handleInterviewEnd = (feedback: string) => {
+  const handleInterviewEnd = (
+    feedback: string, 
+    strengths: string[] = [], 
+    areasForImprovement: string[] = [],
+    overallRating?: string
+  ) => {
     setFinalFeedback(feedback);
+    setFeedbackDetails({
+      strengths,
+      areasForImprovement,
+      overallRating
+    });
     setIsInterviewActive(false);
   };
 
@@ -40,14 +60,38 @@ const App: React.FC = () => {
     setSession(null);
     setMessages([]);
     setFinalFeedback('');
+    setFeedbackDetails({
+      strengths: [],
+      areasForImprovement: []
+    });
     setIsInterviewActive(false);
   };
+
+  // Add additional CSS class to body when using voice mode
+  useEffect(() => {
+    if (session?.isVoiceMode) {
+      document.body.classList.add('voice-mode');
+    } else {
+      document.body.classList.remove('voice-mode');
+    }
+    
+    return () => {
+      document.body.classList.remove('voice-mode');
+    };
+  }, [session?.isVoiceMode]);
 
   return (
     <div className="container py-5">
       <div className="row justify-content-center">
         <div className="col-md-10 col-lg-8">
-          <h1 className="text-center mb-4 fw-bold text-primary">Company-Specific Mock Interview</h1>
+          <h1 className="text-center mb-4 fw-bold text-primary">
+            Company-Specific Mock Interview
+            {session?.isVoiceMode && (
+              <span className="badge bg-info ms-2">
+                <i className="bi bi-mic-fill me-1"></i> Voice Mode
+              </span>
+            )}
+          </h1>
           
           {!isInterviewActive && !finalFeedback && (
             <InterviewSetupForm 
@@ -56,12 +100,22 @@ const App: React.FC = () => {
             />
           )}
           
-          {isInterviewActive && session && (
+          {isInterviewActive && session && !session.isVoiceMode && (
             <InterviewChat 
               session={session}
               messages={messages}
               onAddMessage={handleAddMessage}
-              onInterviewEnd={handleInterviewEnd}
+              onInterviewEnd={(feedback) => handleInterviewEnd(feedback)}
+              setIsLoading={setIsLoading}
+            />
+          )}
+          
+          {isInterviewActive && session && session.isVoiceMode && (
+            <VoiceInterviewChat 
+              session={session}
+              messages={messages}
+              onAddMessage={handleAddMessage}
+              onInterviewEnd={(feedback) => handleInterviewEnd(feedback)}
               setIsLoading={setIsLoading}
             />
           )}
@@ -70,6 +124,9 @@ const App: React.FC = () => {
             <FinalFeedback 
               feedback={finalFeedback} 
               company={session?.company || ''}
+              strengths={feedbackDetails.strengths}
+              areasForImprovement={feedbackDetails.areasForImprovement}
+              overallRating={feedbackDetails.overallRating}
               onNewInterview={handleNewInterview} 
             />
           )}

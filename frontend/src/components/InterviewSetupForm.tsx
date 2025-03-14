@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InterviewSession, InterviewSetup } from '../types';
 import ApiService from '../services/api';
+import { 
+  isSpeechRecognitionSupported, 
+  isSpeechSynthesisSupported 
+} from '../utils/voiceUtils';
 
 // Export the props interface
 export interface InterviewSetupFormProps {
@@ -15,11 +19,15 @@ const InterviewSetupForm: React.FC<InterviewSetupFormProps> = ({
   // State for form values
   const [formValues, setFormValues] = useState<InterviewSetup>({
     company: '',
-    interviewType: 'General'
+    interviewType: 'General',
+    isVoiceMode: false
   });
   
   // Error state
   const [error, setError] = useState<string>('');
+  
+  // Voice support state
+  const [isVoiceSupported, setIsVoiceSupported] = useState<boolean>(true);
 
   // Companies list
   const companies = [
@@ -36,6 +44,19 @@ const InterviewSetupForm: React.FC<InterviewSetupFormProps> = ({
     { name: 'Behavioral', value: 'Behavioral' },
     { name: 'System Design', value: 'System Design' }
   ];
+  
+  // Check if voice features are supported
+  useEffect(() => {
+    const speechRecognitionSupported = isSpeechRecognitionSupported();
+    const speechSynthesisSupported = isSpeechSynthesisSupported();
+    setIsVoiceSupported(speechRecognitionSupported && speechSynthesisSupported);
+    
+    // If voice mode is enabled but not supported, show a warning
+    if (formValues.isVoiceMode && 
+        (!speechRecognitionSupported || !speechSynthesisSupported)) {
+      setError('Voice features are not fully supported in your browser. Please use Chrome for the best experience.');
+    }
+  }, [formValues.isVoiceMode]);
 
   // Handle form field changes
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -43,6 +64,18 @@ const InterviewSetupForm: React.FC<InterviewSetupFormProps> = ({
     setFormValues(prev => ({
       ...prev,
       [name]: value
+    }));
+    
+    // Clear any previous errors when user changes selection
+    setError('');
+  };
+  
+  // Handle checkbox changes
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormValues(prev => ({
+      ...prev,
+      [name]: checked
     }));
     
     // Clear any previous errors when user changes selection
@@ -70,7 +103,8 @@ const InterviewSetupForm: React.FC<InterviewSetupFormProps> = ({
         sessionId: response.session_id,
         company: response.company,
         totalQuestions: response.total_questions,
-        currentQuestion: 1
+        currentQuestion: 1,
+        isVoiceMode: formValues.isVoiceMode
       };
       
       // Pass session and first question to parent
@@ -127,6 +161,27 @@ const InterviewSetupForm: React.FC<InterviewSetupFormProps> = ({
               </option>
             ))}
           </select>
+        </div>
+        
+        <div className="mb-4 form-check">
+          <input
+            type="checkbox"
+            className="form-check-input"
+            id="isVoiceMode"
+            name="isVoiceMode"
+            checked={formValues.isVoiceMode}
+            onChange={handleCheckboxChange}
+            disabled={!isVoiceSupported}
+          />
+          <label className="form-check-label" htmlFor="isVoiceMode">
+            Enable Voice Interview Mode
+          </label>
+          <div className="form-text">
+            {isVoiceSupported ? 
+              "Voice mode allows you to speak your answers and hear the interviewer's questions." :
+              "Voice features are not supported in your browser. Please use Chrome for voice interviews."
+            }
+          </div>
         </div>
         
         <button type="submit" className="btn btn-primary w-100 py-3 mt-3">
