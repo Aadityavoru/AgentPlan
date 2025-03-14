@@ -12,7 +12,7 @@ from flask import Flask, render_template, request, session, jsonify
 import uuid
 from openai import OpenAI
 
-# Import our company-specific question banks
+# Import our company-specific question banks (now split by category)
 from company_questions import question_banks
 
 app = Flask(__name__)
@@ -122,18 +122,31 @@ def index():
 
 @app.route('/start', methods=['POST'])
 def start():
-    """Initialize a new interview session with the selected company."""
+    """Initialize a new interview session with the selected company and interview type."""
     data = request.get_json()
     company = data.get("company")
-    interview_type = data.get("interview_type", "General")
+    # Use the interview_type to select the category (defaulting to 'general')
+    interview_type = data.get("interview_type", "general").lower()
+    
+    # Load the company question bank (organized by category)
+    company_questions = question_banks.get(company, {})
+    if not company_questions:
+        return jsonify({"error": f"No question bank available for {company}."}), 400
+    
+    # Select the questions for the specified interview type
+    question_bank = company_questions.get(interview_type)
+    if not question_bank:
+        return jsonify({"error": f"No question bank available for interview type '{interview_type}' at {company}."}), 400
+
+    # Ensure question_bank is a list; if it's not, convert its values to a list.
+    if not isinstance(question_bank, list):
+        try:
+            question_bank = list(question_bank.values())
+        except Exception as e:
+            return jsonify({"error": f"Invalid question bank format: {str(e)}"}), 400
     
     # Generate a unique session ID
     session_id = str(uuid.uuid4())
-    
-    # Load company question bank
-    question_bank = question_banks.get(company, [])
-    if not question_bank:
-        return jsonify({"error": f"No question bank available for {company}."}), 400
     
     # Initialize session data
     sessions[session_id] = {
@@ -181,7 +194,7 @@ def answer():
     # Add candidate's answer to history
     history.append({"role": "candidate", "text": candidate_answer})
     
-    # Get evaluation prompt for current question
+    # Get evaluation prompt for the current question
     eval_prompt = question_bank[current_index]["evaluation_prompt"]
     
     # Evaluate candidate's answer
@@ -190,7 +203,7 @@ def answer():
     # Add evaluation to history
     history.append({"role": "agent", "text": evaluation})
     
-    # Move to next question
+    # Move to the next question
     session_data["current_index"] += 1
     current_index = session_data["current_index"]
     
