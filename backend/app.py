@@ -8,15 +8,19 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask, render_template, request, session, jsonify
+from flask import Flask, request, session, jsonify
 import uuid
 from openai import OpenAI
+from flask_cors import CORS
 
 # Import our company-specific question banks
 from company_questions import question_banks
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'mock_interview_secret_key')
+
+# Enable CORS for all routes to allow React to communicate with the API
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Initialize OpenAI client
 client = OpenAI()
@@ -113,16 +117,16 @@ def generate_final_feedback(client, conversation_history, company):
     # Return the final feedback
     return response.choices[0].message.content
 
-@app.route('/')
-def index():
-    """Render the main page with company selection."""
-    # Get list of available companies
+@app.route('/api/companies')
+def get_companies():
+    """Return a list of available companies."""
     companies = list(question_banks.keys())
-    return render_template('index.html', companies=companies)
+    return jsonify(companies)
 
-@app.route('/start', methods=['POST'])
+@app.route('/api/start', methods=['POST'])
 def start():
     """Initialize a new interview session with the selected company."""
+    print("Received start request:", request.json)
     data = request.get_json()
     company = data.get("company")
     interview_type = data.get("interview_type", "General")
@@ -133,6 +137,7 @@ def start():
     # Load company question bank
     question_bank = question_banks.get(company, [])
     if not question_bank:
+        print(f"Error: No question bank found for {company}")
         return jsonify({"error": f"No question bank available for {company}."}), 400
     
     # Initialize session data
@@ -154,21 +159,25 @@ def start():
     session['session_id'] = session_id
     
     # Return the first question
-    return jsonify({
+    response = {
         "session_id": session_id, 
         "question": first_question,
         "company": company,
         "total_questions": len(question_bank)
-    })
+    }
+    print("Sending response:", response)
+    return jsonify(response)
 
-@app.route('/answer', methods=['POST'])
+@app.route('/api/answer', methods=['POST'])
 def answer():
     """Handle the candidate's answer, evaluate it, and provide the next question."""
+    print("Received answer request:", request.json)
     data = request.get_json()
     candidate_answer = data.get("answer")
     session_id = data.get("session_id") or session.get('session_id')
     
     if not session_id or session_id not in sessions:
+        print("Session not found:", session_id)
         return jsonify({"error": "Session not found. Please start a new interview."}), 400
     
     # Get session data
@@ -217,15 +226,18 @@ def answer():
             "is_last": True
         }
     
+    print("Sending answer response:", response)
     return jsonify(response)
 
-@app.route('/end', methods=['POST'])
+@app.route('/api/end', methods=['POST'])
 def end():
     """End the interview and generate a comprehensive evaluation."""
+    print("Received end request:", request.json)
     data = request.get_json()
     session_id = data.get("session_id") or session.get('session_id')
     
     if not session_id or session_id not in sessions:
+        print("Session not found:", session_id)
         return jsonify({"error": "Session not found. Please start a new interview."}), 400
     
     # Get session data
@@ -239,11 +251,13 @@ def end():
     # Add final feedback to history
     history.append({"role": "agent", "text": final_feedback})
     
-    # Return final feedback
-    return jsonify({
+    response = {
         "feedback": final_feedback,
         "company": company
-    })
+    }
+    print("Sending end response:", response)
+    return jsonify(response)
 
 if __name__ == '__main__':
+    print("Starting server on http://localhost:5000")
     app.run(debug=True)

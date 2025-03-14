@@ -1,0 +1,180 @@
+body {
+  background-color: #f8f9fa;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.interview-container, 
+.setup-container {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  padding: 30px;
+  transition: all 0.3s ease;
+}
+
+.setup-container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.chat-container {
+  height: 450px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  padding: 20px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+}
+
+.message {
+  margin-bottom: 15px;
+  padding: 15px;
+  border-radius: 8px;
+  max-width: 85%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.agent {
+  background-color: #e9ecef;
+  margin-right: auto;
+  border-top-left-radius: 2px;
+}
+
+.candidate {
+  background-color: #0d6efd;
+  color: white;
+  margin-left: auto;
+  border-top-right-radius: 2px;
+}
+
+.evaluation {
+  background-color: #ffc107;
+  color: #343a40;
+  margin-right: auto;
+  border-left: 4px solid #fd7e14;
+  font-weight: 500;
+}
+
+.final-feedback {
+  background-color: #198754;
+  color: white;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+  line-height: 1.6;
+}
+
+.loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 1000;
+}
+
+.loader {
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #0d6efd;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.progress-container {
+  margin: 20px 0;
+}
+
+.progress {
+  height: 8px !important;
+  background-color: #e9ecef;
+}
+
+.progress-bar {
+  background-color: #0d6efd;
+  transition: width 0.5s ease;
+}
+
+/* Improved form styling */
+.form-control, .form-select {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ced4da;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Button styling */
+.btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+  background-color: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.btn-danger:hover {
+  background-color: #bb2d3b;
+  border-color: #b02a37;
+}
+
+.btn-success {
+  background-color: #198754;
+  border-color: #198754;
+}
+
+.btn-success:hover {
+  background-color: #157347;
+  border-color: #146c43;
+}
+
+/* Typography */
+h1, h2, h3 {
+  color: #212529;
+}
+
+.form-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.badge {
+  padding: 8px 12px;
+  font-weight: 500;
+  font-size: 14px;
+}
