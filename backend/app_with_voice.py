@@ -18,6 +18,8 @@ from pydantic import BaseModel, Field
 
 from agents import Agent, Runner, trace, gen_trace_id
 
+
+
 # Initialize AgentOps with error handling
 try:
     import agentops
@@ -27,7 +29,6 @@ try:
 except Exception as e:
     AGENTOPS_ENABLED = False
     print(f"AgentOps initialization failed: {e}")
-
 # Import our company-specific question banks and evaluation configurations
 from company_questions import question_banks
 from evaluation_configs import build_evaluation_prompt, get_evaluation_config
