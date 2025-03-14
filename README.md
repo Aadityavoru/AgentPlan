@@ -47,8 +47,8 @@ The application follows a client-server architecture:
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd mock-interview-app/backend
+git clone https://github.com/Aadityavoru/AgentPlan.git
+cd AgentPlan/backend
 ```
 
 2. Create a virtual environment:
